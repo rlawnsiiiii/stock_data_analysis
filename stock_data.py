@@ -1,10 +1,19 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.dates as dates
 import yfinance as yf
 import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import seaborn as sb
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from xgboost import XGBClassifier
+from sklearn import metrics
+
 
 def download_stock_data(ticker, years):
     """
@@ -14,7 +23,7 @@ def download_stock_data(ticker, years):
     """
 
     # sanity check
-    if ticker is None or years is None or years < 0 :
+    if ticker is None or years is None or years < 0:
         print("pass reasonable arguments: not None and not negative years!")
         return
 
@@ -25,12 +34,25 @@ def download_stock_data(ticker, years):
 
     # download stockdata using yfinance
     resultData = yf.download(ticker, startDate, endDate)
+    print(resultData.head())
+    print(resultData.info())
+
+    # preprocess data by adding columns
+    resultData["Open-Close"] = resultData["Open"] - resultData["Close"]
+    resultData["Day"] = resultData.index.day
+    resultData["Month"] = resultData.index.month
+    resultData["Year"] = resultData.index.year
+    resultData["Is_quarter_end"] = np.where((resultData["Month"]) % 3 == 0, 1, 0)
+    resultData["Low-High"] = resultData["Low"] - resultData["High"]
+    # "Comparison_1_day" describing whether the stock_price of nth day was lower than the next day
+    resultData["Comparison_1_day"] = np.where((resultData["Close"].shift(-1) > resultData["Close"])
+                                              | (resultData["Open"].shift(-1) > resultData["Open"]), 1, 0)
 
     # add average column as average of 'Low' and 'High'
     resultData["Average"] = (resultData["Low"] + resultData["High"]) / 2.0
 
     # drop unnecessary columns
-    columns_to_drop = ["Open",  "Close", "Adj Close", "Volume"]
+    columns_to_drop = ["Adj Close", "Volume", "Day", "Month", "Year"]
     resultData.drop(columns_to_drop, axis="columns", inplace=True)
 
     # save the stockdata as a csv
@@ -40,9 +62,8 @@ def download_stock_data(ticker, years):
     print(f"path: {path}")
     resultData.to_csv(path)
 
-    print(resultData.head())
-
     return fileName
+
 
 def plot_stock_data(fileName):
     """
@@ -54,28 +75,56 @@ def plot_stock_data(fileName):
     path = os.path.join(pwd, "stock_data_csv", fileName)
     stock_data = pd.read_csv(path)
     fileName = os.path.split(path)[1]
-    print(f"fileName: {fileName}")
+    Ticker = fileName.split('_')[2]
+    startDate = fileName.split('_')[3]
+    endDate = fileName.split('_')[4]
 
     # sanity check
     if not isinstance(stock_data, pd.DataFrame):
         print(f"the given argument {stock_data} is not of type pd.DataFrame!")
 
-    X = stock_data["Date"]
-    plt.plot(X, stock_data["Average"], label = "Average")
-    plt.plot(X, stock_data["Low"], label = "Low")
-    plt.plot(X, stock_data["High"], label = "High")
-    plt.title(f"Stock_data of ")
+    # plot
+    dates = pd.to_datetime(stock_data["Date"])
+    plt.plot(dates, stock_data["Average"], label="Average")
+    plt.plot(dates, stock_data["Open"], label="Low")
+    plt.plot(dates, stock_data["Close"], label="High")
+    plt.gcf().autofmt_xdate()
+    plt.title(f"Stock_data of {Ticker} \n from {startDate} to {endDate}")
     plt.legend()
 
     # Save the plot as png
     format = ".png"
     save_path = os.path.join(pwd, "stock_data_plots", fileName + format)
     plt.savefig(save_path)
+    print(f"saved file: {save_path}")
 
-    return
+
+def split_and_normalize_data(stock_data, valid_size):
+    """
+    noralize data and split data into train- and valid-data
+    target as whether one could have made profit by buying the stock and selling it on the next day
+    :param stock_data:
+    :return: X_train, X_valid, Y_train, Y_valid
+    """
+
+    features = stock_data[["Open-Close", "Is_quarter_end", "Low-High", "Comparison_1_day"]]
+    target = stock_data["Comparison_1_day"]
+
+    scaler = StandardScaler()
+    features = scaler.fit_transform(features)
+
+    X_train, X_valid, Y_train, Y_valid = train_test_split(
+        features, target, test_size=valid_size, random_state=2023)
+    print(f"splitted data using valid_size={valid_size}")
+    print(f"X_train shape: {X_train.shape}")
+    print(f"X_valid shape: {X_valid.shape}")
+
+    return X_train, X_valid, Y_train, Y_valid
 
 
 if __name__ == '__main__':
     # test
     fileName = download_stock_data("GOOGL", 1)
     plot_stock_data(fileName)
+    stock_data = pd.read_csv(f"stock_data_csv/{fileName}")
+    split_and_normalize_data(stock_data, 0.2)
