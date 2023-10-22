@@ -1,12 +1,10 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as dates
 import yfinance as yf
 import os
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
-import seaborn as sb
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
@@ -145,7 +143,7 @@ def develop_models_and_evaluate(X_train, X_valid, Y_train, Y_valid):
 
 if __name__ == '__main__':
     # test
-    fileName = download_stock_data("GOOGL", 10)
+    fileName = download_stock_data("GOOGL", 20)
     plot_stock_data(fileName)
     stock_data = pd.read_csv(f"stock_data_csv/{fileName}")
     X_train, X_valid, Y_train, Y_valid = split_and_normalize_data(stock_data, 0.1)
