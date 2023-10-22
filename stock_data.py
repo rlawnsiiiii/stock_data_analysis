@@ -52,7 +52,7 @@ def download_stock_data(ticker, years):
     resultData["Average"] = (resultData["Low"] + resultData["High"]) / 2.0
 
     # drop unnecessary columns
-    columns_to_drop = ["Adj Close", "Volume", "Day", "Month", "Year"]
+    columns_to_drop = ["Adj Close", "Volume"]
     resultData.drop(columns_to_drop, axis="columns", inplace=True)
 
     # save the stockdata as a csv
@@ -107,7 +107,7 @@ def split_and_normalize_data(stock_data, valid_size):
     :return: X_train, X_valid, Y_train, Y_valid
     """
 
-    features = stock_data[["Open-Close", "Is_quarter_end", "Low-High", "Comparison_1_day"]]
+    features = stock_data[["Day", "Month", "Year", "Open-Close", "Is_quarter_end", "Low-High"]]
     target = stock_data["Comparison_1_day"]
 
     scaler = StandardScaler()
@@ -122,9 +122,31 @@ def split_and_normalize_data(stock_data, valid_size):
     return X_train, X_valid, Y_train, Y_valid
 
 
+def develop_models_and_evaluate(X_train, X_valid, Y_train, Y_valid):
+    """
+    develop different models (Logistic Regression, Support Vector Machine, XGBClassifier) and evaluate them using the valid_data
+    :return: models
+    """
+    models = [LogisticRegression(), SVC(kernel='poly', probability=True), XGBClassifier()]
+
+    print()
+    print("Calcuating accuracies of trained models")
+    for model in models:
+        model.fit(X_train, Y_train)
+        print(f'{model} : ')
+        print('Training Accuracy : ', metrics.roc_auc_score(
+            Y_train, model.predict_proba(X_train)[:, 1]))
+        print('Validation Accuracy : ', metrics.roc_auc_score(
+            Y_valid, model.predict_proba(X_valid)[:, 1]))
+        print()
+
+    return models
+
+
 if __name__ == '__main__':
     # test
-    fileName = download_stock_data("GOOGL", 1)
+    fileName = download_stock_data("GOOGL", 10)
     plot_stock_data(fileName)
     stock_data = pd.read_csv(f"stock_data_csv/{fileName}")
-    split_and_normalize_data(stock_data, 0.2)
+    X_train, X_valid, Y_train, Y_valid = split_and_normalize_data(stock_data, 0.1)
+    logistic_regression, SVC, XGBClassifier = develop_models_and_evaluate(X_train, X_valid, Y_train, Y_valid)
