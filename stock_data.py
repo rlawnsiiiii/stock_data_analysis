@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import yfinance as yf
 import os
+import pathlib
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 from sklearn.model_selection import train_test_split
@@ -142,7 +143,15 @@ def develop_models_and_evaluate(X_train, X_valid, Y_train, Y_valid):
 
 
 if __name__ == '__main__':
-    # test
+
+    # create directories for csv_files and plots
+    pwd = os.getcwd()
+    csv_path = os.path.join(pwd, "stock_data_csv")
+    plot_path = os.path.join(pwd, "stock_data_plots")
+    pathlib.Path(csv_path).mkdir(parents=True, exist_ok=True)
+    pathlib.Path(plot_path).mkdir(parents=True, exist_ok=True)
+
+    # run
     fileName = download_stock_data("GOOGL", 20)
     plot_stock_data(fileName)
     stock_data = pd.read_csv(f"stock_data_csv/{fileName}")
